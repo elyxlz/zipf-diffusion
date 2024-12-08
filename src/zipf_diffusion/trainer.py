@@ -17,7 +17,7 @@ class TrainConfig(pyds.BaseSettings):
     batch_size: int
     dit_config: DiTConfig
     dataset_name: str = "tiny_shakespeare"
-    num_workers: int = 0
+    num_workers: int
     tokenizer_name: str = "gpt2"
     grad_norm: float = 1.0
     test_every: int
@@ -25,7 +25,7 @@ class TrainConfig(pyds.BaseSettings):
     zipf_lower_bound: float
     blank_is_noise: bool
     generate_kwargs: dict
-    num_warmup_steps: int = 10
+    num_warmup_steps: int
 
 
 class ZipfDataset(torch.utils.data.Dataset):
@@ -367,6 +367,7 @@ if __name__ == "__main__":
         zipf_lower_bound=1e-11,
         generate_kwargs=dict(num_steps=10, temperature=1.0),
         num_warmup_steps=10,
+        num_workers=4,
     )
 
     train(train_config)
