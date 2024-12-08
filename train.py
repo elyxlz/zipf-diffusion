@@ -22,7 +22,7 @@ if __name__ == "__main__":
         generate_kwargs=dict(num_steps=30, temperature=1.0),
         num_warmup_steps=250,
         num_workers=12,
-        compile=True,
+        compile=False,
     )
 
     train(train_config)
