@@ -1,0 +1,32 @@
+[project]
+name = "zipf-diffusion"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "elyx", email = "elio@pascarelli.com" }]
+requires-python = ">=3.11"
+dependencies = [
+  "datasets>=3.1.0",
+  "einops>=0.8.0",
+  "matplotlib>=3.9.3",
+  "pydantic-settings>=2.6.1",
+  "torch>=2.5.1",
+  "tqdm>=4.67.1",
+  "transformers>=4.47.0",
+]
+
+[project.scripts]
+zipf-diffusion = "zipf_diffusion:main"
+
+[tool.ruff]
+line-length = 144
+indent-width = 4
+target-version = "py310"
+
+[tool.ruff.lint]
+ignore = ["E402", "E702", "E731", "UP008"]
+extend-select = ["UP"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
