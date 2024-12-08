@@ -72,6 +72,8 @@ class TrainState(typing.NamedTuple):
 
 def init_train_state(config: TrainConfig, device: torch.device) -> TrainState:
     model = DiT(config.dit_config).to(device)
+    num_params = sum(p.numel() for p in model.parameters()) / 1e6
+    print(f"Number of parameters: {num_params:.2f} million")
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
 
     # Create scheduler for linear warmup and linear decay
