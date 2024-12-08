@@ -1,10 +1,10 @@
 import typing
-import tqdm
 from collections import Counter
 
 import datasets
 import pydantic_settings as pyds
 import torch
+import tqdm
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, get_linear_schedule_with_warmup
 
@@ -81,8 +81,7 @@ def init_train_state(config: TrainConfig, device: torch.device) -> TrainState:
         # linear decay
         return max(
             0.0,
-            float(config.max_steps - current_step)
-            / float(max(1, config.max_steps - config.num_warmup_steps)),
+            float(config.max_steps - current_step) / float(max(1, config.max_steps - config.num_warmup_steps)),
         )
 
     scheduler = get_linear_schedule_with_warmup(
@@ -97,14 +96,10 @@ def init_train_state(config: TrainConfig, device: torch.device) -> TrainState:
         chunk_size=config.chunk_size,
         split="train",
     )
-    return TrainState(
-        model=model, optimizer=optimizer, scheduler=scheduler, dataset=dataset
-    )
+    return TrainState(model=model, optimizer=optimizer, scheduler=scheduler, dataset=dataset)
 
 
-def create_batched_cross_reference_mask(
-    reference_idxs: list[list[int]], target_tensor: torch.Tensor
-) -> torch.Tensor:
+def create_batched_cross_reference_mask(reference_idxs: list[list[int]], target_tensor: torch.Tensor) -> torch.Tensor:
     device = target_tensor.device
     batch_size = target_tensor.shape[0]
     mask = torch.zeros_like(target_tensor, dtype=torch.bool)
@@ -116,25 +111,19 @@ def create_batched_cross_reference_mask(
 
 def calculate_zipf_distribution(dataset: ZipfDataset) -> list[int]:
     """Calculate Zipf distribution from dataset."""
-    all_ids = [
-        token_id for example in dataset for token_id in example["input_ids"].tolist()
-    ]
+    all_ids = [token_id for example in dataset for token_id in example["input_ids"].tolist()]
     counts = Counter(all_ids)
     sorted_counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
     sorted_token_idxs = [item[0] for item in sorted_counts]
     return sorted_token_idxs
 
 
-def log_transform(
-    noise: torch.Tensor, num_tokens: int, lower_bound: float
-) -> torch.Tensor:
+def log_transform(noise: torch.Tensor, num_tokens: int, lower_bound: float) -> torch.Tensor:
     """Transform noise value to token index based on Zipf distribution."""
     device = noise.device
     eps = 1e-10
     lower_bound_t = torch.tensor(lower_bound, device=device, dtype=noise.dtype)
-    normalized = (
-        torch.log10(torch.clamp(noise, min=eps)) - torch.log10(lower_bound_t)
-    ) / (-torch.log10(lower_bound_t))
+    normalized = (torch.log10(torch.clamp(noise, min=eps)) - torch.log10(lower_bound_t)) / (-torch.log10(lower_bound_t))
     idx = (normalized * (num_tokens - 1)).long()
     return torch.clamp(idx, min=0, max=num_tokens - 1)
 
@@ -150,9 +139,7 @@ def add_noise(
     """Apply noise to input tensor based on the Zipf distribution and time."""
     device = x.device
     # Convert time to indices in the Zipf distribution
-    zipf_indices = log_transform(
-        time, num_tokens=len(sorted_token_idxs), lower_bound=zipf_lower_bound
-    )
+    zipf_indices = log_transform(time, num_tokens=len(sorted_token_idxs), lower_bound=zipf_lower_bound)
 
     # get the noise tokens for each timestep
     noise_idxs = [sorted_token_idxs[-i:] for i in zipf_indices]
@@ -236,9 +223,7 @@ def sample_from_logits(logits: torch.Tensor, temperature: float = 1.0) -> torch.
         return torch.argmax(logits, dim=-1)
     scaled_logits = logits / temperature
     probs = torch.nn.functional.softmax(scaled_logits, dim=-1)
-    return torch.multinomial(probs.view(-1, probs.size(-1)), num_samples=1).view(
-        logits.size(0), -1
-    )
+    return torch.multinomial(probs.view(-1, probs.size(-1)), num_samples=1).view(logits.size(0), -1)
 
 
 def generate_text(
@@ -251,9 +236,7 @@ def generate_text(
     blank_is_noise: bool,
     temperature: float = 1.0,
 ) -> list[str]:
-    device = (
-        model.device if hasattr(model, "device") else next(model.parameters()).device
-    )
+    device = model.device if hasattr(model, "device") else next(model.parameters()).device
     sequence_length = model.config.sequence_length
 
     shape = (batch_size, sequence_length)
@@ -302,9 +285,7 @@ def train(config: TrainConfig):
     )
 
     step = 0
-    pbar = tqdm.tqdm(
-        total=config.max_steps, desc="Training", dynamic_ncols=True, colour="blue"
-    )
+    pbar = tqdm.tqdm(total=config.max_steps, desc="Training", dynamic_ncols=True, colour="blue")
 
     while step < config.max_steps:
         for batch in dl:

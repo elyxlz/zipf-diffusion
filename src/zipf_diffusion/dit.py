@@ -103,14 +103,10 @@ class Modulation(torch.nn.Module):
         self.use_gate = use_gate
         self.proj = torch.nn.Sequential(
             torch.nn.SiLU(),
-            zero_init(
-                torch.nn.Linear(ada_dim, dim * 3 if use_gate else dim * 2, bias=True)
-            ),
+            zero_init(torch.nn.Linear(ada_dim, dim * 3 if use_gate else dim * 2, bias=True)),
         )
 
-    def forward(
-        self, x: torch.Tensor, ada_cond: torch.Tensor
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, ada_cond: torch.Tensor) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         mod = self.proj(ada_cond.unsqueeze(1)).chunk(3 if self.use_gate else 2, dim=-1)
         x = x * (mod[0] + 1) + mod[1]
         return (x, mod[2]) if self.use_gate else x
@@ -122,9 +118,7 @@ class Attention(torch.nn.Module):
         self.num_heads = num_heads
         self.head_dim = hidden_dim // num_heads
 
-        self.qkv_proj = xavier_init(
-            torch.nn.Linear(hidden_dim, hidden_dim * 3, bias=False)
-        )
+        self.qkv_proj = xavier_init(torch.nn.Linear(hidden_dim, hidden_dim * 3, bias=False))
         self.o_proj = xavier_init(torch.nn.Linear(hidden_dim, hidden_dim, bias=False))
         self.norm = torch.nn.LayerNorm(hidden_dim, bias=False)
         self.modulation = Modulation(hidden_dim, ada_dim=ada_dim, use_gate=True)
@@ -132,18 +126,11 @@ class Attention(torch.nn.Module):
         self.q_norm = torch.nn.LayerNorm(self.head_dim, bias=False)
         self.k_norm = torch.nn.LayerNorm(self.head_dim, bias=False)
 
-    def forward(
-        self, x: torch.Tensor, ada_cond: torch.Tensor, freqs: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, ada_cond: torch.Tensor, freqs: torch.Tensor) -> torch.Tensor:
         x = self.norm(x)
         x, gate = self.modulation(x, ada_cond)
         q, k, v = self.qkv_proj(x).chunk(3, dim=-1)
-        q, k, v = [
-            eo.rearrange(
-                t, "b s (nh hd) -> b nh s hd", nh=self.num_heads, hd=self.head_dim
-            )
-            for t in (q, k, v)
-        ]
+        q, k, v = [eo.rearrange(t, "b s (nh hd) -> b nh s hd", nh=self.num_heads, hd=self.head_dim) for t in (q, k, v)]
         q, k = self.q_norm(q), self.k_norm(k)
         q, k = apply_rope(q, freqs), apply_rope(k, freqs)
         x = torch.nn.functional.scaled_dot_product_attention(q, k, v)
@@ -155,15 +142,9 @@ class Mlp(torch.nn.Module):
     def __init__(self, hidden_dim: int, intermediate_dim: int, ada_dim: int) -> None:
         super().__init__()
 
-        self.fc1 = xavier_init(
-            torch.nn.Linear(hidden_dim, intermediate_dim, bias=False)
-        )
-        self.fc2 = xavier_init(
-            torch.nn.Linear(hidden_dim, intermediate_dim, bias=False)
-        )
-        self.fc3 = xavier_init(
-            torch.nn.Linear(intermediate_dim, hidden_dim, bias=False)
-        )
+        self.fc1 = xavier_init(torch.nn.Linear(hidden_dim, intermediate_dim, bias=False))
+        self.fc2 = xavier_init(torch.nn.Linear(hidden_dim, intermediate_dim, bias=False))
+        self.fc3 = xavier_init(torch.nn.Linear(intermediate_dim, hidden_dim, bias=False))
         self.norm = torch.nn.LayerNorm(hidden_dim, bias=False)
         self.modulation = Modulation(hidden_dim, ada_dim=ada_dim, use_gate=True)
 
@@ -187,15 +168,9 @@ class DiTLayer(torch.nn.Module):
     def enable_checkpointing(self) -> None:
         self.use_checkpointing = True
 
-    def forward(
-        self, x: torch.Tensor, ada_cond: torch.Tensor, freqs: torch.Tensor
-    ) -> torch.Tensor:
-        x = x + checkpoint(
-            self.use_checkpointing and self.training, self.attn, x, ada_cond, freqs
-        )
-        return x + checkpoint(
-            self.use_checkpointing and self.training, self.mlp, x, ada_cond
-        )
+    def forward(self, x: torch.Tensor, ada_cond: torch.Tensor, freqs: torch.Tensor) -> torch.Tensor:
+        x = x + checkpoint(self.use_checkpointing and self.training, self.attn, x, ada_cond, freqs)
+        return x + checkpoint(self.use_checkpointing and self.training, self.mlp, x, ada_cond)
 
 
 class DiT(torch.nn.Module):
@@ -203,20 +178,14 @@ class DiT(torch.nn.Module):
         super().__init__()
         self.config = config
 
-        self.layers = torch.nn.ModuleList(
-            [DiTLayer(config) for _ in range(config.num_layers)]
-        )
+        self.layers = torch.nn.ModuleList([DiTLayer(config) for _ in range(config.num_layers)])
 
         self.norm = torch.nn.LayerNorm(config.hidden_dim, bias=False)
-        self.modulation = Modulation(
-            config.hidden_dim, ada_dim=config.ada_dim, use_gate=False
-        )
+        self.modulation = Modulation(config.hidden_dim, ada_dim=config.ada_dim, use_gate=False)
 
         self.time_cond_net = FourierFeatures(config.time_dim, config.ada_dim)
 
-        self.word_embedding = torch.nn.Embedding(
-            config.vocab_size, embedding_dim=config.hidden_dim
-        )
+        self.word_embedding = torch.nn.Embedding(config.vocab_size, embedding_dim=config.hidden_dim)
 
         self.head = zero_init(
             torch.nn.Linear(config.hidden_dim, config.vocab_size),
