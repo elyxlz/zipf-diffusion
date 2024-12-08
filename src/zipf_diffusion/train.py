@@ -25,7 +25,7 @@ class TrainConfig(pyds.BaseSettings):
     zipf_lower_bound: float
     blank_is_noise: bool
     generate_kwargs: dict
-    num_warmup_steps: int = 10  # number of warmup steps for the scheduler
+    num_warmup_steps: int = 10
 
 
 class ZipfDataset(torch.utils.data.Dataset):
