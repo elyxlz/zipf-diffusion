@@ -17,10 +17,10 @@ if __name__ == "__main__":
         ),
         chunk_size=chunk_size,
         blank_is_noise=False,
-        test_every=1000,
+        test_every=250,
         zipf_lower_bound=1e-11,
         generate_kwargs=dict(num_steps=30, temperature=1.0),
-        num_warmup_steps=500,
+        num_warmup_steps=250,
         num_workers=12,
     )
 

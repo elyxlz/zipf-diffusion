@@ -1,4 +1,5 @@
 import typing
+import os
 from collections import Counter
 
 import datasets
@@ -26,6 +27,7 @@ class TrainConfig(pyds.BaseSettings):
     blank_is_noise: bool
     generate_kwargs: dict
     num_warmup_steps: int
+    compile: bool = False
 
 
 class ZipfDataset(torch.utils.data.Dataset):
@@ -75,17 +77,6 @@ def init_train_state(config: TrainConfig, device: torch.device) -> TrainState:
     num_params = sum(p.numel() for p in model.parameters()) / 1e6
     print(f"Number of parameters: {num_params:.2f} million")
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
-
-    # Create scheduler for linear warmup and linear decay
-    def lr_lambda(current_step: int):
-        if current_step < config.num_warmup_steps:
-            return float(current_step) / float(max(1, config.num_warmup_steps))
-        # linear decay
-        return max(
-            0.0,
-            float(config.max_steps - current_step)
-            / float(max(1, config.max_steps - config.num_warmup_steps)),
-        )
 
     scheduler = get_linear_schedule_with_warmup(
         optimizer=optimizer,
@@ -291,8 +282,14 @@ def train(config: TrainConfig):
     """Main training function."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    os.environ["TOKENIZERS_PARALLELISM"] = "False"
+
     # Initialize training state (model, optimizer, scheduler, dataset)
     state = init_train_state(config, device=device)
+
+    if config.compile:
+        state = state._replace(model=torch.compile(state.model, mode="reduce-overhead"))  # type: ignore
+
     sorted_token_idxs = calculate_zipf_distribution(state.dataset)
 
     dl = DataLoader(
